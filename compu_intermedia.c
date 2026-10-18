@@ -25,5 +25,4 @@ void main() {
 
 
 	system("pause");
-	strncpy(ip, buffer, sizeof(ip) - 1);
 }
