@@ -4,9 +4,9 @@
 #include <string.h>
 #define ip_command "ipconfig | findstr IPv4" //o "hostname -I" en linux 
 char ip[64] = { 0 };
-char buffer[128];
+char borrador[128];
 
-//#define DEBUG_MODE
+#define DEBUG_MODE
 
 #ifdef _WIN32 //entra solo si se corre en windows
 
@@ -42,14 +42,14 @@ typedef int SOCKET;
 
 
 
-void main() {
+int main() {
 	FILE* pipe = _popen(ip_command, "r"); // FILE es una estructura que permite la manipulacion de archivos  para guardar salidas de comandos y imprimirlos con las funciones de impresion en pantalla de archivos
 	if (pipe == NULL) {
 		perror("Error opening pipe");
 		return;
 	}
-	while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
-		char* character = strchr(buffer, ':');
+	while (fgets(borrador, sizeof(borrador), pipe) != NULL) {
+		char* character = strchr(borrador, ':');
 		if (character != NULL) {
 			character++; // Avanza después de los dos puntos
 			while (*character == ' ' || *character == '\t') character++; // Salta espacios
@@ -57,7 +57,7 @@ void main() {
 			ip[strcspn(ip, "\r\n")] = 0; // Elimina salto de línea
 			break; // Solo la primera IP encontrada
 		}
-
+	}
 	_pclose(pipe);
 	if (strlen(ip) == 0) {
 		printf("Error: No se pudo detectar la IP local.\n");
@@ -65,7 +65,6 @@ void main() {
 	}
 	#ifdef DEBUG_MODE
 	printf("IP Local detectada: %s\n", ip);
-	printf("El error no esta aca jaja");
 	#endif 
 
 	//ahora que tenemos la ip cruda en la variable ip, podemos imprimirla en pantalla o mandarla por serial..
@@ -74,7 +73,6 @@ void main() {
 
 
 	// Variables para la red
-	WSADATA wsaData;
 	SOCKET server_fd, client_fd;
 	// 1. Declaras la variable y la llenas de ceros por seguridad
 	struct sockaddr_in server_addr = { 0 };
@@ -119,33 +117,33 @@ void main() {
 	}
 
 	printf("Servidor HTTP Windows iniciado. Escuchando en el puerto %d...\n", PUERTO_HTTP);
-while (1) {
-        client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_addr_len);
-        if (client_fd == INVALID_SOCKET) {
-            printf("Fallo al aceptar la conexion.\n");
-            continue; 
-        }
+	while (1) {
+		client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_addr_len);
+		if (client_fd == INVALID_SOCKET) {
+			printf("Fallo al aceptar la conexion.\n");
+			continue;
+		}
 
-        memset(buffer, 0, BUFFER_SIZE);
-        int bytes_recibidos = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+		memset(buffer, 0, BUFFER_SIZE);
+		int bytes_recibidos = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
 
-        if (bytes_recibidos > 0) {
-            char *cuerpo_mensaje = strstr(buffer, "\r\n\r\n");
-            
-            if (cuerpo_mensaje != NULL) {
-                cuerpo_mensaje += 4; 
-                printf("\n[NUEVO POST RECIBIDO]\n%s\n", cuerpo_mensaje);
-            }
+		if (bytes_recibidos > 0) {
+			char* cuerpo_mensaje = strstr(buffer, "\r\n\r\n");
 
-            const char *respuesta_http = 
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/plain\r\n"
-                "Connection: close\r\n"
-                "\r\n"
-                "Mensaje procesado correctamente";
-            
-            send(client_fd, respuesta_http, strlen(respuesta_http), 0);
-        }
+			if (cuerpo_mensaje != NULL) {
+				cuerpo_mensaje += 4;
+				printf("\n[NUEVO POST RECIBIDO]\n%s\n", cuerpo_mensaje);
+			}
+
+			const char* respuesta_http =
+				"HTTP/1.1 200 OK\r\n"
+				"Content-Type: text/plain\r\n"
+				"Connection: close\r\n"
+				"\r\n"
+				"Mensaje procesado correctamente";
+
+			send(client_fd, respuesta_http, (int)strlen(respuesta_http), 0);
+		}
 		closesocket(client_fd);
 	}
 #ifdef _WIN32
@@ -153,5 +151,3 @@ while (1) {
 #endif
 	return 0;
 	}
-	system("pause");
-}
