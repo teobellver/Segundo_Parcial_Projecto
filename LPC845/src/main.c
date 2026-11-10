@@ -1,44 +1,58 @@
 #include "LPC845.h"
+#include "systick.h"
+#include "uart.h"
+#include "wifi.h"
+#include "timers.h"
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
 
+// =========================================================================
+// DEFINICIONES PARA EL TERMISTOR Y RED
+// =========================================================================
+#define RESISTENCIA_SERIE 10000.0   // Resistencia fija R13 de 10k en el divisor
+#define RESISTENCIA_NOMINAL 10000.0 // Resistencia del NTC a 25°C
+#define TEMPERATURA_NOMINAL 298.15  // 25°C convertidos a Kelvin
+#define BETA_TERMISTOR 3950.0       // Constante Beta del NTC
+
+#define RED_WIFI "Nombre_de_tu_WiFi"
+#define CLAVE_WIFI "Clave_de_tu_WiFi"
+
+// =========================================================================
+// VARIABLES GLOBALES
+// =========================================================================
+char ip_servidor[32];
+uint8_t ip_recibida = 0;
+char post_request[256];
+char buffer_comando_at[64];
+char cuerpo_mensaje[64];
+
+// =========================================================================
+// FUNCIONES AUXILIARES
+// =========================================================================
+
+// Retardo bloqueante simple (Ajustar el multiplicador según el reloj de tu CPU)
+void Retardo_ms(uint32_t ms) {
+    // Si tu CPU va a 30MHz, un bucle vacío toma unos ciclos.
+    // Esto es una aproximación rústica; idealmente usarías timers.h
+    for (volatile uint32_t i = 0; i < (ms * 3000); i++);
+}
+
+// =========================================================================
+// CONFIGURACIÓN Y LECTURA DEL ADC (CANAL 1 - PIO0_6)
+// =========================================================================
 void Inicializar_ADC(void) {
-    // 1. Encender el reloj para el SWM y el ADC (SYSAHBCLKCTRL0)
+    // 1. Encender el reloj para el SWM y el ADC
     SYSCON->SYSAHBCLKCTRL0 |= SYSCON_SYSAHBCLKCTRL0_SWM_MASK | SYSCON_SYSAHBCLKCTRL0_ADC_MASK;
 
-    // 2. Apagar la resistencia de Pull-up/Pull-down en PIO0_6 (Requisito para pines analógicos)
-    IOCON->PIO[6] &= ~0x18; // Limpia los bits de modo
+    // 2. Apagar la resistencia de Pull-up/Pull-down en PIO0_6
+    IOCON->PIO[6] &= ~0x18;
 
-    // 3. Habilitar la función ADC_1 en el pin PIO0_6
+    // 3. Habilitar la función ADC_1 en el pin PIO0_6 (Un '0' habilita la función analógica)
     SWM0->PINENABLE0 &= ~SWM_PINENABLE0_ADC_1_MASK;
 
     // 4. Quitar el ADC del modo Power-Down
     SYSCON->PDRUNCFG &= ~SYSCON_PDRUNCFG_ADC_MASK;
 
-    // 5. Configurar el reloj del ADC (Divisor)
-    // Se asume un reloj de sistema de 30MHz. El ADC requiere <= 72MHz.
-    ADC0->CTRL = ADC_CTRL_CLKDIV(0);
-
-    // 6. Calibración del ADC
-    ADC0->CTRL |= ADC_CTRL_CALMODE(1);
-    while (ADC0->CTRL & ADC_CTRL_CALMODE_MASK); // Esperar a que termine la calibración
-
-    // 7. Configurar la Secuencia A (SEQA) para leer el Canal 1
-    // Borramos los canales anteriores y seleccionamos el canal 1 (bit 1)
-    ADC0->SEQ_CTRL[0] &= ~ADC_SEQ_CTRL_CHANNELS_MASK;
-    ADC0->SEQ_CTRL[0] |= ADC_SEQ_CTRL_CHANNELS(1 << 1);
-
-    // 8. Habilitar la Secuencia A
-    ADC0->SEQ_CTRL[0] |= ADC_SEQ_CTRL_SEQ_ENA(1);
-}
-
-uint16_t Leer_ADC(void) {
-    // Disparar la conversión de la Secuencia A por software
-    ADC0->SEQ_CTRL[0] |= ADC_SEQ_CTRL_START(1);
-
-    // Esperar a que la conversión termine (monitoreando el bit DATAVALID del canal 1)
-    while (!(ADC0->DAT[1] & ADC_DAT_DATAVALID_MASK));
-
-    // Extraer el resultado de 12 bits (bits 4 a 15) usando los macros de tu header
-    uint16_t resultado = (ADC0->DAT[1] & ADC_DAT_RESULT_MASK) >> ADC_DAT_RESULT_SHIFT;
-
-    return resultado;
-}
+    // 5. Configurar el reloj del ADC
+    ADC0->CTRL = ADC_CTRL
