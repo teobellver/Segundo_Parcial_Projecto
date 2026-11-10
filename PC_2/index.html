@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoreo de Temperatura - Servidor C</title>
+    <!-- Tailwind CSS CDN para diseño moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col items-center p-6">
+
+    <div class="max-w-5xl w-full mx-auto space-y-6">
+        
+        <!-- Cabecera -->
+        <header class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-extrabold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                    Panel de Control de Temperatura
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">Backend en C (Sockets) + Frontend Web en Tiempo Real</p>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-700/50 px-4 py-2 rounded-xl border border-slate-600">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span class="text-xs font-semibold text-emerald-400">Servidor Activo</span>
+            </div>
+        </header>
+
+        <!-- Tarjetas de Estadísticas -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg">
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Actual</p>
+                <p id="stat-actual" class="text-3xl font-extrabold text-blue-400 mt-2">-- °C</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg">
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Máxima</p>
+                <p id="stat-max" class="text-3xl font-extrabold text-rose-400 mt-2">-- °C</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg">
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Mínima</p>
+                <p id="stat-min" class="text-3xl font-extrabold text-cyan-400 mt-2">-- °C</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg">
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Promedio</p>
+                <p id="stat-prom" class="text-3xl font-extrabold text-amber-400 mt-2">-- °C</p>
+            </div>
+        </div>
+
+        <!-- Sección del Gráfico -->
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-slate-200">Historial de Variación</h2>
+                <span id="total-registros" class="text-xs text-slate-400 bg-slate-700 px-3 py-1 rounded-lg">0 lecturas</span>
+            </div>
+            <div class="relative h-80 w-full">
+                <canvas id="graficoTemp"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script de Automatización y Gráficos -->
+    <script>
+        const ctx = document.getElementById('graficoTemp').getContext('2d');
+        
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Temperatura (°C)',
+                    data: [],
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#3b82f6',
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+
+        async function actualizarDashboard() {
+            try {
+                // Añadir timestamp para evitar caché del navegador
+                const response = await fetch('datos.csv?' + new Date().getTime());
+                if (!response.ok) return;
+                
+                const text = await response.text();
+                const lineas = text.trim().split('\n');
+                
+                if (lineas.length <= 1) return; // Si solo está la cabecera
+
+                const labels = [];
+                const data = [];
+                let suma = 0;
+                let max = -Infinity;
+                let min = Infinity;
+                let count = 0;
+
+                for (let i = 1; i < lineas.length; i++) {
+                    const partes = lineas[i].split(',');
+                    if (partes.length === 2) {
+                        const hora = partes[0];
+                        const temp = parseFloat(partes[1]);
+                        
+                        labels.push(hora);
+                        data.push(temp);
+
+                        suma += temp;
+                        if (temp > max) max = temp;
+                        if (temp < min) min = temp;
+                        count++;
+                    }
+                }
+
+                if (count > 0) {
+                    const actual = data[data.length - 1];
+                    const prom = (suma / count).toFixed(2);
+
+                    // Actualizar las tarjetas en la interfaz
+                    document.getElementById('stat-actual').innerText = actual + ' °C';
+                    document.getElementById('stat-max').innerText = max + ' °C';
+                    document.getElementById('stat-min').innerText = min + ' °C';
+                    document.getElementById('stat-prom').innerText = prom + ' °C';
+                    document.getElementById('total-registros').innerText = count + ' lecturas';
+
+                    // Actualizar el gráfico
+                    chart.data.labels = labels;
+                    chart.data.datasets[0].data = data;
+                    chart.update('none');
+                }
+            } catch (error) {
+                console.error("Error al leer los datos:", error);
+            }
+        }
+
+        // Cargar inmediatamente y actualizar cada 3 segundos
+        actualizarDashboard();
+        setInterval(actualizarDashboard, 3000);
+    </script>
+</body>
+</html>
