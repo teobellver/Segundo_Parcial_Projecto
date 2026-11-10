@@ -1,0 +1,54 @@
+/*
+ * funciones.c
+ *
+ *  Created on: 14 may. 2026
+ *      Author: teobe
+ */
+
+
+
+#include "stdio.h"
+#include "Outputs.h"
+#include "Adc.h"
+#include "Inputs.h"
+#include "funciones.h"
+#include "Infotronic.h"
+#include "display7Segmentos.h"
+
+int TR;
+enum ESTADOS{RESET,R_1,R_0};
+int ESTADO;
+int temp;
+int tempMax=60;
+int tempMin=55;
+void funcion(void){
+	ESTADO=RESET;
+	temp=TemperatureInt()/10;
+	DisplaySegmentos(temp,DSP0);
+	if(ESTADO==RESET){
+		ESTADO=R_1;
+		OUTPUT(OUT0,OFF);
+	}
+	if (ESTADO==R_0){
+//		TR=0;
+
+		Output(OUT1,ON);
+		if (temp>=tempMax){
+			ESTADO=R_0;
+		}
+	}
+	if (ESTADO==R_1){
+//		TR=1;
+		Output(OUT1,OFF);
+		if (tempMin>=temp){
+			ESTADO=R_1;
+		}
+	}
+	if(ESTADO>R_0){
+		ESTADO=RESET;
+	}
+
+}
+
+
+

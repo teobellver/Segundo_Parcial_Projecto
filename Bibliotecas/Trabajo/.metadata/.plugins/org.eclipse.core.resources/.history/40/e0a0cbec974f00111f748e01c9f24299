@@ -1,0 +1,52 @@
+/*
+ * funciones.c
+ *
+ *  Created on: 7 may. 2026
+ *      Author: teobe y ES
+ */
+#include "Outputs.h"
+#include "Inputs.h"
+#include "funciones.h"
+int O1;
+int s1;
+enum ESTADOS{RESET,ESTADO_1,ESTADO_2};
+int ESTADO=RESET; //definimos al ESTADO (variable) por default como RESET (valor int guardado en enum ESTADOS)
+int flanco(void){
+	static int fsi=0;
+	int salida=-1;
+	int s1=Inputs(IN0);
+	if (!fsi && s1){
+		fsi=1;
+		 salida=1;
+	}
+	if (fsi && !s1){
+		fsi=0;
+		salida=0;
+	}
+	return salida;
+}
+void MDE(void){
+	s1=flanco();
+
+	if (ESTADO==RESET){
+		Output(OUT,OFF);
+		ESTADO=ESTADO_1;
+	};
+	if (ESTADO==ESTADO_1){
+		if(s1==1){
+			Output(OUT0,ON);
+			ESTADO=ESTADO_2;
+		}}
+
+	s1=flanco();
+	if (ESTADO==ESTADO_2){
+		if(s1==1){
+			Output(OUT0,OFF);
+
+			ESTADO=ESTADO_1;
+
+		}
+	}
+}
+
+

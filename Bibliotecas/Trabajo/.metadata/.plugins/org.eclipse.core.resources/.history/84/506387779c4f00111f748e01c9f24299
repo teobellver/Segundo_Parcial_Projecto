@@ -1,0 +1,41 @@
+/*
+ * funciones.c
+ *
+ *  Created on: 14 may. 2026
+ *      Author: teobe
+ */
+
+
+#include "Outputs.h"
+#include "Adc.h"
+#include "Inputs.h"
+#include "funciones.h"
+int TR;
+enum ESTADOS{R_1,R_0};
+int ESTADO;
+int temp=20;
+int tempMax=60;
+int tempMin=58;
+int funcion(void){
+	ESTADO=R_1;
+	if (ESTADO==R_1){
+//		TR=0;
+		temp=TensionIn();
+		Output(OUT1,ON);
+		if (temp>=tempMax){
+			ESTADO=R_0;
+		}
+	}
+	if (ESTADO==R_0){
+//		TR=1;
+		Output(OUT1,OFF);
+		if (tempMin>=temp){
+			ESTADO=R_1;
+		}
+	}
+
+
+}
+
+
+

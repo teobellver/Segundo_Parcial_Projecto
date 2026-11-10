@@ -1,0 +1,6 @@
+"Task Aware Debugger for GDB" version 25.6.0 (202506250844)
+Copyright 2016-2025 NXP
+==================================
+12:23:21.206 INFO: [ZephyrRTOS] .config file could not be read [C:\Users\teobe\Downloads\Clase Info 7_5\Trabajo\Schomwandt_Bellver_2\Debug\.config (El sistema no puede encontrar el archivo especificado)]
+12:23:21.206 INFO: [TadModel] DSF session ID 32 has started.
+12:23:26.955 INFO: [TadModel] DSF session ID 32 has ended.

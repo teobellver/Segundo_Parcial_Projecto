@@ -1,0 +1,11 @@
+12:24:21 **** Incremental Build of configuration Debug for project Schomwandt_Bellver_2 ****
+make -r -j20 all 
+make[1]: Nothing to be done for 'main-build'.
+Performing post-build steps
+arm-none-eabi-size "Schomwandt_Bellver_2.axf"; # arm-none-eabi-objcopy -v -O binary "Schomwandt_Bellver_2.axf" "Schomwandt_Bellver_2.bin" ; # checksum -p LPC845 -d "Schomwandt_Bellver_2.bin";
+   text	   data	    bss	    dec	    hex	filename
+  10644	    176	   3060	  13880	   3638	Schomwandt_Bellver_2.axf
+ 
+
+12:24:21 Build Finished. 0 errors, 0 warnings. (took 149ms)
+
