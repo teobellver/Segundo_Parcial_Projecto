@@ -1,8 +1,6 @@
 #include "sock-lib.h"
 #include <pthread.h>
-#include "AtencionDelCliente.h"
-#include "lib.h"
-
+/*
 int main(void)
 {
     int socket_fd, resu;
@@ -28,13 +26,13 @@ int main(void)
 
 
 
-        /*
+        
         Esto funciona únicamente si garantizás que la primera conexión corresponde a la placa y la segunda a PC2.
 
         Una solución más robusta es que cada cliente se identifique al conectarse, por ejemplo enviando PLACA\n o PC2\n.
-        */
+        
 
-        // Creamos un hilo
+        Creamos un hilo
         pthread_create(&thread_placa, NULL, ControlPlaca, &datos);
         pthread_create(&thread_pc2, NULL, ControlPC2, &datos);
 
@@ -46,6 +44,8 @@ int main(void)
     }
     return 0;
 }
+*/
+
 
 
 int main(void)

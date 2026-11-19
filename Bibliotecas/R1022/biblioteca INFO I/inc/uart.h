@@ -78,4 +78,7 @@ void UART2_IRQ ( void );
 void UART3_IRQ ( void );
 void UART4_IRQ ( void );
 
+voy a ver si hay alguien en el panol asi ya nos pickeamos la SWM_PINENABLE0_CAPT_X0
+mw PARECE QUE TEO TIENE UNA YA
+
 #endif /* I1_USART_UART_H_ */
