@@ -1,52 +1,5 @@
 #include "sock-lib.h"
 #include <pthread.h>
-#include "AtencionDelCliente.h"
-#include "lib.h"
-
-int main(void)
-{
-    int socket_fd, resu;
-    struct DatosCompartidos datos;
-    pthread_t thread_placa, thread_pc2;
-
-    resu = pthread_mutex_init(&datos.mutex, NULL);
-    if (resu != 0)
-        return 1;
-
-    socket_fd = AperturaDelSocket(3468);
-    if (socket_fd == -1)
-        return 1;
-
-    while (1) // main accept() loop
-    {
-        printf("Esperando cliente\n");
-
-        resu = AceptarConexion(socket_fd, &datos, PLACA);
-        resu = AceptarConexion(socket_fd, &datos, PC2);
-        if (resu)
-            return -1;
-
-
-
-        /*
-        Esto funciona únicamente si garantizás que la primera conexión corresponde a la placa y la segunda a PC2.
-
-        Una solución más robusta es que cada cliente se identifique al conectarse, por ejemplo enviando PLACA\n o PC2\n.
-        */
-
-        // Creamos un hilo
-        pthread_create(&thread_placa, NULL, ControlPlaca, &datos);
-        pthread_create(&thread_pc2, NULL, ControlPC2, &datos);
-
-        pthread_detach(thread_placa);
-        pthread_detach(thread_pc2);
-
-
-
-    }
-    return 0;
-}
-
 
 int main(void)
 {
