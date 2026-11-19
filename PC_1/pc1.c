@@ -19,119 +19,80 @@ struct EstadoCompartido
     int activo;
 };
 
-void *HiloPlaca(void *arg)
+void *ControlPlaca(void *arg)
 {
-    struct EstadoCompartido *estado = (struct EstadoCompartido *)arg;
-    char buffer[128];
+    struct EstadoCompartido *datos = (struct EstadoCompartido *)arg;
+    char buffer[1024];
     ssize_t recibido;
+    float temp;
+    int instruccion;
 
     while (1)
     {
-        pthread_mutex_lock(&estado->mutex);
-        int sigue_activo = estado->activo;
-        int sock_placa = estado->sock_placa;
-        pthread_mutex_unlock(&estado->mutex);
-
-        if (!sigue_activo || sock_placa < 0)
-            break;
-
-        recibido = recv(sock_placa, buffer, sizeof(buffer) - 1, 0);
+        recibido = recv(datos->sock_placa, buffer, sizeof(buffer) - 1, 0);
         if (recibido <= 0)
-        {
-            printf("Placa desconectada o error en recv.\n");
             break;
-        }
 
         buffer[recibido] = '\0';
-        buffer[strcspn(buffer, "\r\n")] = '\0';
+        temp = strtof(buffer, NULL);
 
-        if (strlen(buffer) == 0)
-            continue;
+        if (temp >= 30.0f)
+            instruccion = 1;
+        else
+            instruccion = 0;
 
-        char *endptr = NULL;
-        float temp = strtof(buffer, &endptr);
-        if (endptr == buffer)
-        {
-            fprintf(stderr, "Dato no numérico recibido de la placa: '%s'\n", buffer);
-            continue;
-        }
+        if (send(datos->sock_placa, &instruccion, sizeof(instruccion), 0) <= 0)
+            break;
 
-        // Instrucción opcional hacia la placa según temperatura (ej: >= 30.0 -> 1, sino 0)
-        int instruccion = (temp >= 30.0f) ? 1 : 0;
-        send(sock_placa, &instruccion, sizeof(instruccion), MSG_NOSIGNAL);
-
-        pthread_mutex_lock(&estado->mutex);
-        estado->temperatura = temp;
-        estado->nueva_temperatura = 1;
-        pthread_cond_signal(&estado->cond_temp);
-        pthread_mutex_unlock(&estado->mutex);
-
-        printf("[PC1] Recibido de placa: %.2f °C\n", temp);
+        pthread_mutex_lock(&datos->mutex);
+        datos->temperatura = temp;
+        datos->nueva_temperatura = 1;
+        pthread_cond_signal(&datos->cond_temp);
+        pthread_mutex_unlock(&datos->mutex);
     }
 
-    pthread_mutex_lock(&estado->mutex);
-    estado->activo = 0;
-    pthread_cond_broadcast(&estado->cond_temp);
-    pthread_mutex_unlock(&estado->mutex);
+    pthread_mutex_lock(&datos->mutex);
+    datos->activo = 0;
+    pthread_cond_broadcast(&datos->cond_temp);
+    pthread_mutex_unlock(&datos->mutex);
 
     return NULL;
 }
 
-void *HiloPC2(void *arg)
+void *ControlPC2(void *arg)
 {
-    struct EstadoCompartido *estado = (struct EstadoCompartido *)arg;
+    struct EstadoCompartido *datos = (struct EstadoCompartido *)arg;
+    float temp;
 
     while (1)
     {
-        pthread_mutex_lock(&estado->mutex);
+        pthread_mutex_lock(&datos->mutex);
 
-        while (estado->activo && !estado->nueva_temperatura)
+        while (datos->nueva_temperatura == 0 && datos->activo)
         {
-            pthread_cond_wait(&estado->cond_temp, &estado->mutex);
+            pthread_cond_wait(&datos->cond_temp, &datos->mutex);
         }
 
-        if (!estado->activo)
+        if (!datos->activo)
         {
-            pthread_mutex_unlock(&estado->mutex);
+            pthread_mutex_unlock(&datos->mutex);
             break;
         }
 
-        float temp_a_enviar = estado->temperatura;
-        int sock_pc2 = estado->sock_pc2;
-        estado->nueva_temperatura = 0;
-        pthread_mutex_unlock(&estado->mutex);
+        temp = datos->temperatura;
+        datos->nueva_temperatura = 0;
+        pthread_mutex_unlock(&datos->mutex);
 
-        if (sock_pc2 < 0)
+        if (send(datos->sock_pc2X, &temp, sizeof(float), 0) <= 0)
             break;
-
-        size_t enviados = 0;
-        const unsigned char *ptr = (const unsigned char *)&temp_a_enviar;
-
-        while (enviados < sizeof(float))
-        {
-            ssize_t s = send(sock_pc2, ptr + enviados, sizeof(float) - enviados, 0);
-            if (s <= 0)
-            {
-                perror("Error enviando a PC2");
-                pthread_mutex_lock(&estado->mutex);
-                estado->activo = 0;
-                pthread_cond_broadcast(&estado->cond_temp);
-                pthread_mutex_unlock(&estado->mutex);
-                return NULL;
-            }
-            enviados += (size_t)s;
-        }
-
-        printf("[PC1] Enviado a PC2: %.2f °C\n", temp_a_enviar);
     }
 
-    pthread_mutex_lock(&estado->mutex);
-    estado->activo = 0;
-    pthread_cond_broadcast(&estado->cond_temp);
-    pthread_mutex_unlock(&estado->mutex);
+    pthread_mutex_lock(&datos->mutex);
+    datos->activo = 0;
+    pthread_cond_broadcast(&datos->cond_temp);
+    pthread_mutex_unlock(&datos->mutex);
 
-    if (estado->sock_placa >= 0)
-        shutdown(estado->sock_placa, SHUT_RDWR);
+    shutdown(datos->sock_placa, SHUT_RDWR);
 
     return NULL;
 }
@@ -194,7 +155,7 @@ int main(void)
             continue;
         }
 
-        if (pthread_create(&th_placa, NULL, HiloPlaca, &estado) != 0)
+        if (pthread_create(&th_placa, NULL, ControlPlaca, &estado) != 0)
         {
             perror("Error pthread_create placa");
             pthread_mutex_lock(&estado.mutex);
@@ -207,7 +168,7 @@ int main(void)
             continue;
         }
 
-        if (pthread_create(&th_pc2, NULL, HiloPC2, &estado) != 0)
+        if (pthread_create(&th_pc2, NULL, ControlPC2, &estado) != 0)
         {
             perror("Error pthread_create pc2");
             pthread_mutex_lock(&estado.mutex);
